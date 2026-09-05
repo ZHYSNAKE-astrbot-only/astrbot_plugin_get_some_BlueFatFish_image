@@ -62,7 +62,7 @@ class MyPlugin(Star):
         """后台下载并解压图片"""
         try:
             zip_path = os.path.join(self.image_folder, "repo.zip")
-            url = "https://gitee.com/ZHYSNAKE/plugin_only/zipball/main"
+            url = "https://api.github.com/repos/ZHYSNAKE/plugin_only/zipball/main"
             logger.info("开始下载图片压缩包...")
             resp = requests.get(url, stream=True, allow_redirects=True, timeout=60)
             if resp.status_code != 200:
