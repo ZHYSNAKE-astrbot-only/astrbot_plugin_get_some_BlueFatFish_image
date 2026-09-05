@@ -1,6 +1,6 @@
-name: astrbot_plugin_get_some_blue-fat-fish_image
+name: astrbot_plugin_get_some_BlueFatFish_image
 display_name: 来点ds蓝色大肥鱼吊图 
 desc: 发送“/来点蓝色大肥鱼” 从本地图库里随机选一张ds蓝色大肥鱼吊图发出来
 version: v1.0.0 
 author: ZHYSNAKE 
-repo: 
+repo: https://github.com/ZHYSNAKE/astrbot_plugin_get_some_BlueFatFish_image
