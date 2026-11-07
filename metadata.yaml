@@ -1,6 +1,6 @@
 name: astrbot_plugin_get_some_BlueFatFish_image
 display_name: 来点ds蓝色大肥鱼吊图
 desc: 只有"/来点蓝色大肥鱼 x"一个指令，随机从图库里选x张图，x不加就是发一张图
-version: 2.5.8
+version: 2.5.9
 author: ZHYSNAKE
 repo: https://github.com/ZHYSNAKE-astrbot-only/astrbot_plugin_get_some_BlueFatFish_image
