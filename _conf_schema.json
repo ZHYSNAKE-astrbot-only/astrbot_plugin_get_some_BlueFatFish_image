@@ -4,18 +4,5 @@
     "hint": "格式 owner/repo",
     "type": "string",
     "default": "ZHYSNAKE/plugin_only"
-  },
-  "staging_repo": {
-    "description": "待审仓库地址（Gitee）",
-    "hint": "格式 owner/repo。留空 = 投稿只暂存本机 staging_local/",
-    "type": "string",
-    "default": "ZHYSNAKE/plugin-only-would"
-  },
-  "staging_token": {
-    "description": "待审仓库专用 Gitee 私人令牌（用于投稿上传）",
-    "hint": "投稿上传必需只用于待审仓库",
-    "type": "string",
-    "default": "9539579af6d4135eefd813e5d81afc81",
-    "secret": true
   }
 }

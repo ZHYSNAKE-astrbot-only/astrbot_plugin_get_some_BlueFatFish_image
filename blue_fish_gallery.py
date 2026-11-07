@@ -6,12 +6,10 @@
    不把整个图库下载解压到本地；
 2. 发图时只按需取用户要的那几张，在内存里转成图片消息组件发出；
 3. 图库来自：内置清单（gallery.json）+ Gitee 图库仓库（gallery_repo）索引；
-4. 别人投稿只写到待审仓库（staging_repo），绝不写图库仓库，审核在 Gitee 网页做。
 """
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import random
@@ -32,17 +30,6 @@ def is_image_name(name: str) -> bool:
     return path.lower().endswith(IMAGE_EXTS)
 
 
-def guess_ext(data: bytes, content_type: str = "") -> str:
-    ct = (content_type or "").lower()
-    if "png" in ct or data[:8] == b"\x89PNG\r\n\x1a\n":
-        return ".png"
-    if "gif" in ct or data[:3] == b"GIF":
-        return ".gif"
-    if "webp" in ct or (data[:4] == b"RIFF" and data[8:12] == b"WEBP"):
-        return ".webp"
-    return ".jpg"
-
-
 class CloudGallery:
     """只管理「链接」的图库，不缓存图片本体。"""
 
@@ -55,7 +42,6 @@ class CloudGallery:
         self.builtin_path = os.path.join(plugin_dir, "gallery.json")
         self.cache_path = os.path.join(plugin_dir, "gallery_cache.json")
         self.tags_path = os.path.join(plugin_dir, "tags.json")
-        self.staging_local_dir = os.path.join(plugin_dir, "staging_local")
 
         self._tags: dict[str, list[str]] = {}
         self._builtin: list[str] = self._load_builtin()
@@ -368,72 +354,6 @@ class CloudGallery:
         if not data:
             raise ValueError("图片内容为空")
         return data, ctype
-
-    # ------------------------------------------------------------------ 投稿兜底（本机）
-    def save_staging_local(self, data: bytes, filename: str) -> str:
-        """没配好待审仓库时的本地兜底：只写 staging_local/，**不进图库索引**。"""
-        os.makedirs(self.staging_local_dir, exist_ok=True)
-        path = os.path.join(self.staging_local_dir, filename)
-        with open(path, "wb") as f:
-            f.write(data)
-        return path
-
-    # ------------------------------------------------------------------ Gitee API 辅助
-    def _gitee_post(self, api: str, fields: dict, token: str, timeout: int = 20) -> dict:
-        fields = dict(fields)
-        fields["access_token"] = token
-        payload = urllib.parse.urlencode(fields).encode()
-        req = urllib.request.Request(
-            api, data=payload,
-            headers={"User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded"},
-        )
-        with self._opener().open(req, timeout=timeout) as resp:
-            body = resp.read(256 * 1024).decode("utf-8", "ignore")
-        try:
-            return json.loads(body)
-        except (ValueError, TypeError):
-            return {"_raw": body}
-
-    def _gitee_put_file(self, owner: str, name: str, path: str, data: bytes,
-                        branch: str, token: str, message: str) -> dict:
-        """向指定仓库/分支提交一个文件（用于待审仓库投稿）。"""
-        api = (
-            f"https://gitee.com/api/v5/repos/{urllib.parse.quote(owner)}/"
-            f"{urllib.parse.quote(name)}/contents/{urllib.parse.quote(path)}"
-        )
-        r = self._gitee_post(api, {
-            "content": base64.b64encode(data).decode(),
-            "message": message,
-            "branch": branch,
-        }, token)
-        if isinstance(r, dict) and r.get("message") and not r.get("content"):
-            raise RuntimeError(f"Gitee 提交文件失败：{r.get('message')}")
-        return r
-
-    def upload_to_staging(self, data: bytes, filename: str) -> dict:
-        """把别人投稿的图片传到「待审仓库」，返回可点开的 Gitee 文件页面。
-
-        安全性：只写 staging_repo，且**不把直链登记进图库索引** —— 待审图片
-        永远不会被插件发出去，也污染不了图库仓库。批准由管理员在 Gitee 上手动完成。
-        """
-        repo = str(self.cfg("staging_repo", "") or "").strip()
-        token = str(self.cfg("staging_token", "") or "").strip()
-        branch = "main"
-        prefix = "inbox"
-        if not token or "/" not in repo:
-            raise RuntimeError("未配置 staging_repo / staging_token")
-        owner, name = repo.split("/", 1)
-        key = f"{prefix}/{filename}" if prefix else filename
-        result = self._gitee_put_file(
-            owner, name, key, data, branch, token,
-            message=f"投稿 {filename} (AstrBot 蓝色大肥鱼插件)",
-        )
-        content = result.get("content", {}) if isinstance(result, dict) else {}
-        if not isinstance(content, dict):
-            content = {}
-        page = content.get("html_url") or f"https://gitee.com/{repo}/blob/{branch}/{key}"
-        direct = content.get("download_url") or f"https://gitee.com/{repo}/raw/{branch}/{key}"
-        return {"page": page, "url": direct, "key": key}
 
     # ------------------------------------------------------------------ 状态
     def stats(self) -> dict:
