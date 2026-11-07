@@ -205,3 +205,21 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ---- v2 云端图库：只存索引 / 投稿，不再把整包图库下载到插件目录 ----
+# v1 遗留的整包图片目录（升级后可手动删除）
+/image/
+# 运行时生成的索引缓存、标签、待审队列、投稿文件、导出的清单
+/gallery_cache.json
+/gallery_cache.json.tmp
+/tags.json
+/tags.json.tmp
+/pending.json
+/pending.json.tmp
+/pending/
+/my_gallery.json
+/submissions/
+# 没配好待审仓库时的本地兜底目录（不会进入图库）
+/staging_local/
+# AstrBot 配置页 type=file 的上传目录（若数据目录落在插件内）
+/files/
