@@ -30,7 +30,7 @@ from blue_fish_gallery import CloudGallery  # noqa: E402
     "来点蓝色大肥鱼",
     "ZHYSNAKE",
     "云端图库版：从 Gitee 图库仓库按需取图发送，插件对仓库只读",
-    "2.5.6",
+    "2.5.8",
 )
 class BlueFatFishPlugin(Star):
     def __init__(self, context: Context, config=None):

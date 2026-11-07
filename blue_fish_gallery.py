@@ -2,10 +2,11 @@
 """蓝色大肥鱼「云端图库」核心。
 
 设计要点：
-1. 插件目录只保存「图片直链索引」（gallery.json / gallery_cache.json，几 KB），
-   不把整个图库下载解压到本地；
+1. 插件目录只保留随包分发的只读清单 gallery.json，不把整个图库下载解压到本地；
 2. 发图时只按需取用户要的那几张，在内存里转成图片消息组件发出；
 3. 图库来自：内置清单（gallery.json）+ Gitee 图库仓库（gallery_repo）索引；
+4. 运行期持久化数据（gallery_cache.json / tags.json）写在 AstrBot 规定的
+   data/plugin_data/<plugin_name>/ 下，不写入插件代码目录。
 """
 
 from __future__ import annotations
@@ -30,6 +31,32 @@ def is_image_name(name: str) -> bool:
     return path.lower().endswith(IMAGE_EXTS)
 
 
+def resolve_data_dir(plugin_dir: str) -> str:
+    """取 AstrBot 规定的插件数据目录 data/plugin_data/<plugin_name>/。
+
+    运行期持久化数据不允许写进插件代码目录，以便用户迁移与审计。
+    """
+    plugin_dir = os.path.abspath(plugin_dir)
+    name = os.path.basename(plugin_dir)
+    try:
+        from astrbot.api.star import StarTools
+
+        return str(StarTools.get_data_dir(name))
+    except Exception:
+        pass
+    try:
+        from astrbot.core.utils.astrbot_path import get_astrbot_data_path
+
+        return os.path.join(str(get_astrbot_data_path()), "plugin_data", name)
+    except Exception:
+        pass
+    # 兜底：从 <root>/data/plugins/<name> 推断 <root>/data/plugin_data/<name>
+    parent = os.path.dirname(plugin_dir)
+    if os.path.basename(parent).lower() == "plugins":
+        return os.path.join(os.path.dirname(parent), "plugin_data", name)
+    return os.path.join(os.path.expanduser("~"), ".astrbot", "plugin_data", name)
+
+
 class CloudGallery:
     """只管理「链接」的图库，不缓存图片本体。"""
 
@@ -39,9 +66,33 @@ class CloudGallery:
         self.log = log
         self._lock = threading.RLock()
 
+        # 随包分发的只读清单，保留在插件目录
         self.builtin_path = os.path.join(plugin_dir, "gallery.json")
-        self.cache_path = os.path.join(plugin_dir, "gallery_cache.json")
-        self.tags_path = os.path.join(plugin_dir, "tags.json")
+        # 运行期持久化数据，写入 AstrBot 规定的插件数据目录
+        self.data_dir = resolve_data_dir(plugin_dir)
+        try:
+            os.makedirs(self.data_dir, exist_ok=True)
+        except OSError as e:
+            self.log.warning(f"[鱼图] 插件数据目录创建失败：{self.data_dir} -> {e}")
+        self.cache_path = os.path.join(self.data_dir, "gallery_cache.json")
+        self.tags_path = os.path.join(self.data_dir, "tags.json")
+        self._migrate_legacy_data(plugin_dir)
+
+    def _migrate_legacy_data(self, plugin_dir: str) -> None:
+        """旧版本写在插件目录里的缓存/标签复制过来，不删除原文件，避免丢数据。"""
+        if os.path.abspath(self.data_dir) == os.path.abspath(plugin_dir):
+            return
+        for name in ("gallery_cache.json", "tags.json"):
+            src = os.path.join(plugin_dir, name)
+            dst = os.path.join(self.data_dir, name)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    import shutil
+
+                    shutil.copy2(src, dst)
+                    self.log.info(f"[鱼图] 已迁移旧数据 {name} -> {dst}")
+                except OSError as e:
+                    self.log.warning(f"[鱼图] 迁移旧数据 {name} 失败：{e}")
 
         self._tags: dict[str, list[str]] = {}
         self._builtin: list[str] = self._load_builtin()
